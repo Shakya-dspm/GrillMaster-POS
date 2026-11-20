@@ -1,0 +1,44 @@
+:root {
+    --gm-brand: #C2410C;
+    /* burger orange (white text passes contrast) */
+    --gm-brand-dark: #9A3412;
+    --gm-dark: #1E1E22;
+    /* charcoal */
+    --gm-bg: #F4F1EC;
+    /* warm off-white page */
+    --gm-line: #D9D3C9;
+    /* borders */
+    --gm-line-soft: #E7E2DA;
+    --gm-muted: #6B6B73;
+    --gm-card-shadow: 0 1px 3px rgba(30, 30, 34, .10);
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--gm-bg);
+    color: var(--gm-dark);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+.page-title,
+.cart-heading {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 700;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    letter-spacing: -0.01em;
+}
+
+.cart-heading {
+    font-size: 1.25rem;
+}
+
+.text-muted-gm {
+    color: var(--gm-muted) !important;
+}
