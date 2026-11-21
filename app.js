@@ -1,6 +1,11 @@
 const CONFIG = {
     currency: 'Rs.',
     taxRate: 0.18,
+    demoLogin: {
+        username: 'admin',
+        password: 'grillmaster',
+        sessionKey: 'grillmaster_demo_session'
+    },
     keys: {
         products: 'grillmaster_products',
         customers: 'grillmaster_customers',
@@ -31,7 +36,7 @@ const SEED_CUSTOMERS = [
     { name: 'Kavindi Silva', phone: '0712345678', email: '', address: 'Temple Road, Panadura' }
 ];
 
-const TINTS = { Burgers: '#FBE3D0', Fries: '#FCEFC2', Drinks: '#D9ECF7' };
+const TINTS = { Burgers: 'var(--surface-panel)', Fries: 'var(--surface-panel)', Drinks: 'var(--surface-panel)' };
 
 const GLYPHS = {
     Burgers: s => `<svg viewBox="0 0 64 64" width="${s}" height="${s}" aria-hidden="true"><path d="M8 28c0-11 10-18 24-18s24 7 24 18z" fill="#E9A23B"/><rect x="6" y="31" width="52" height="6" rx="3" fill="#5B8C2A"/><rect x="8" y="38" width="48" height="8" rx="4" fill="#6B3A22"/><path d="M8 48h48c0 6-5 9-10 9H18c-5 0-10-3-10-9z" fill="#E9A23B"/></svg>`,
@@ -206,7 +211,7 @@ function renderMenu() {
         ? list.map(p => `
         <div class="col">
           <div class="card menu-card" data-id="${p.id}">
-            <div class="menu-tile" style="background:${tint(p.category)}">${glyph(p.category, 56)}</div>
+            <div class="menu-tile">${glyph(p.category, 56)}</div>
             <div class="menu-body">
               <div class="menu-name">${esc(p.name)}</div>
               <div class="d-flex align-items-center justify-content-between">
@@ -375,11 +380,11 @@ function renderProducts() {
     } else {
         tbody.innerHTML = state.products.map(p => `
       <tr>
-        <td><span class="mini-tile" style="background:${tint(p.category)}">${glyph(p.category, 26)}</span>${esc(p.name)}</td>
+        <td><span class="mini-tile">${glyph(p.category, 26)}</span>${esc(p.name)}</td>
         <td><span class="badge text-bg-secondary">${esc(p.category)}</span></td>
         <td class="text-end">${money(p.price)}</td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${p.id}" aria-label="Edit ${esc(p.name)}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-gm" data-action="edit" data-id="${p.id}" aria-label="Edit ${esc(p.name)}"><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${p.id}" aria-label="Delete ${esc(p.name)}"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`).join('');
@@ -469,7 +474,7 @@ function renderCustomers() {
           <td>${esc(c.address) || '<span class="text-muted-gm">-</span>'}</td>
           <td class="text-center"><span class="badge text-bg-light border">${orderCount}</span></td>
           <td class="text-end">
-            <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${c.id}" aria-label="Edit ${esc(c.name)}"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-gm" data-action="edit" data-id="${c.id}" aria-label="Edit ${esc(c.name)}"><i class="bi bi-pencil"></i></button>
             <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${c.id}" aria-label="Delete ${esc(c.name)}"><i class="bi bi-trash"></i></button>
           </td>
         </tr>`;
@@ -580,8 +585,8 @@ function renderOrders() {
         <td>${esc(o.payment)}</td>
         <td><span class="badge ${STATUS_BADGE[o.status] || 'text-bg-light'}">${esc(o.status)}</span></td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-secondary" data-action="view" data-id="${o.id}" aria-label="View ${esc(o.number)}"><i class="bi bi-eye"></i></button>
-          <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${o.id}" aria-label="Edit ${esc(o.number)}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-gm" data-action="view" data-id="${o.id}" aria-label="View ${esc(o.number)}"><i class="bi bi-eye"></i></button>
+          <button class="btn btn-sm btn-outline-gm" data-action="edit" data-id="${o.id}" aria-label="Edit ${esc(o.number)}"><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${o.id}" aria-label="Delete ${esc(o.number)}"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`).join('');
@@ -666,7 +671,7 @@ function renderOrderEditItems() {
         <tr>
           <td>${esc(it.name)}</td>
           <td class="text-end">${money(it.price)}</td>
-          <td><input type="number" class="form-control form-control-sm" min="1" step="1" value="${it.qty}" data-idx="${idx}" aria-label="Quantity for ${esc(it.name)}"></td>
+          <td><input type="number" class="form-control form-control-sm" style="text-align: center" min="1" step="1" value="${it.qty}" data-idx="${idx}" aria-label="Quantity for ${esc(it.name)}"></td>
           <td class="text-end" data-line-total="${idx}">${money(it.price * it.qty)}</td>
           <td class="text-end"><button type="button" class="btn btn-sm text-danger" data-remove="${idx}" aria-label="Remove ${esc(it.name)}"><i class="bi bi-x-lg"></i></button></td>
         </tr>`).join('')
@@ -791,7 +796,11 @@ function renderAll() {
     renderOrderNo();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+let appInitialized = false;
+
+function initializeApp() {
+    if (appInitialized) return;
+    appInitialized = true;
     loadState();
     bindNavigation();
     bindMenu();
@@ -800,4 +809,53 @@ document.addEventListener('DOMContentLoaded', () => {
     bindCustomers();
     bindOrders();
     renderAll();
+}
+
+function showLogin() {
+    $('#appShell').classList.add('d-none');
+    $('#cartFab').classList.add('d-none');
+    $('#loginPage').classList.remove('d-none');
+    $('#loginUsername').focus();
+}
+
+function showApp() {
+    $('#loginPage').classList.add('d-none');
+    $('#appShell').classList.remove('d-none');
+    initializeApp();
+    showView('pos');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    $('#loginForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        if (!form.reportValidity()) return;
+
+        const username = $('#loginUsername').value.trim();
+        const password = $('#loginPassword').value;
+        if (username !== CONFIG.demoLogin.username || password !== CONFIG.demoLogin.password) {
+            $('#loginError').classList.remove('d-none');
+            $('#loginPassword').select();
+            return;
+        }
+
+        sessionStorage.setItem(CONFIG.demoLogin.sessionKey, 'true');
+        $('#loginError').classList.add('d-none');
+        showApp();
+    });
+
+    $('#loginUsername').addEventListener('input', () => $('#loginError').classList.add('d-none'));
+    $('#loginPassword').addEventListener('input', () => $('#loginError').classList.add('d-none'));
+    $('#logoutBtn').addEventListener('click', () => {
+        sessionStorage.removeItem(CONFIG.demoLogin.sessionKey);
+        $('#loginForm').reset();
+        $('#loginError').classList.add('d-none');
+        showLogin();
+    });
+
+    if (sessionStorage.getItem(CONFIG.demoLogin.sessionKey) === 'true') {
+        showApp();
+    } else {
+        showLogin();
+    }
 });
