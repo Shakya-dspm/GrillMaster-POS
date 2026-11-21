@@ -428,6 +428,12 @@ textarea.form-control { min-height: 0; }
   .app-content { padding-bottom: 5rem; }  /* keep content clear of the floating button */
 }
 
+.badge {
+  --bs-badge-padding-x: 0.55em;
+  --bs-badge-padding-y: 0.35em;
+  border-radius: 0.65rem;
+}
+
 /* ---------- Cards, tables, stats ---------- */
 .card-gm {
   border: 0;
