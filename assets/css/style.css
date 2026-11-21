@@ -452,7 +452,9 @@ textarea.form-control { min-height: 0; }
   text-transform: uppercase;
   border-bottom-color: var(--gm-line-soft);
 }
+.table th, .table td { text-align: center !important; }
 .table td, .table th { white-space: nowrap; }
+#view-products tbody td:first-child { text-align: left !important; }
 .stat-card { border-left: 4px solid var(--gm-brand); }
 
 /* ---------- Modals ---------- */
