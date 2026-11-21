@@ -365,11 +365,11 @@ function checkout() {
 }
 
 function renderProducts() {
-  const tbody = $('#productsTable');
-  if (!state.products.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted-gm py-4">No products yet. Click "Add Product".</td></tr>`;
-  } else {
-    tbody.innerHTML = state.products.map(p => `
+    const tbody = $('#productsTable');
+    if (!state.products.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted-gm py-4">No products yet. Click "Add Product".</td></tr>`;
+    } else {
+        tbody.innerHTML = state.products.map(p => `
       <tr>
         <td><span class="mini-tile" style="background:${tint(p.category)}">${glyph(p.category, 26)}</span>${esc(p.name)}</td>
         <td><span class="badge text-bg-secondary">${esc(p.category)}</span></td>
@@ -379,73 +379,227 @@ function renderProducts() {
           <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${p.id}" aria-label="Delete ${esc(p.name)}"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`).join('');
-  }
-  renderMenu();
-  renderCart();
-  populateOrderEditProducts();
+    }
+    renderMenu();
+    renderCart();
+    populateOrderEditProducts();
 }
 
 function openProductModal(id) {
-  const form = $('#productForm');
-  form.reset();
-  form.classList.remove('was-validated');
+    const form = $('#productForm');
+    form.reset();
+    form.classList.remove('was-validated');
 
-  const p = state.products.find(x => x.id === id);
-  $('#productModalTitle').textContent = p ? 'Edit Product' : 'Add Product';
-  $('#productId').value       = p ? p.id : '';
-  $('#productName').value     = p ? p.name : '';
-  $('#productCategory').value = p ? p.category : 'Burgers';
-  $('#productPrice').value    = p ? p.price : '';
-  modal('productModal').show();
+    const p = state.products.find(x => x.id === id);
+    $('#productModalTitle').textContent = p ? 'Edit Product' : 'Add Product';
+    $('#productId').value = p ? p.id : '';
+    $('#productName').value = p ? p.name : '';
+    $('#productCategory').value = p ? p.category : 'Burgers';
+    $('#productPrice').value = p ? p.price : '';
+    modal('productModal').show();
 }
 
 function bindProducts() {
-  $('#addProductBtn').addEventListener('click', () => openProductModal());
+    $('#addProductBtn').addEventListener('click', () => openProductModal());
 
-  $('#productsTable').addEventListener('click', e => {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    const id = btn.dataset.id;
+    $('#productsTable').addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
 
-    if (btn.dataset.action === 'edit') openProductModal(id);
-    if (btn.dataset.action === 'delete') {
-      const p = state.products.find(x => x.id === id);
-      confirmAction(`Delete "${p.name}"? Past orders keep their records.`, () => {
-        state.products = state.products.filter(x => x.id !== id);
-        state.cart = state.cart.filter(l => l.productId !== id);
+        if (btn.dataset.action === 'edit') openProductModal(id);
+        if (btn.dataset.action === 'delete') {
+            const p = state.products.find(x => x.id === id);
+            confirmAction(`Delete "${p.name}"? Past orders keep their records.`, () => {
+                state.products = state.products.filter(x => x.id !== id);
+                state.cart = state.cart.filter(l => l.productId !== id);
+                saveProducts();
+                renderProducts();
+                toast('Product deleted.');
+            });
+        }
+    });
+
+    $('#productForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const form = e.target;
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        const id = $('#productId').value;
+        const data = {
+            name: $('#productName').value.trim(),
+            category: $('#productCategory').value,
+            price: round2(parseFloat($('#productPrice').value))
+        };
+
+        if (id) {
+            const i = state.products.findIndex(p => p.id === id);
+            state.products[i] = { ...state.products[i], ...data };
+            toast('Product updated.');
+        } else {
+            state.products.push({ id: uid(), ...data });
+            toast('Product added.');
+        }
+
         saveProducts();
         renderProducts();
-        toast('Product deleted.');
-      });
-    }
-  });
-
-  $('#productForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const form = e.target;
-    if (!form.checkValidity()) {
-      form.classList.add('was-validated');
-      return;
-    }
-
-    const id = $('#productId').value;
-    const data = {
-      name: $('#productName').value.trim(),
-      category: $('#productCategory').value,
-      price: round2(parseFloat($('#productPrice').value))
-    };
-
-    if (id) {
-      const i = state.products.findIndex(p => p.id === id);
-      state.products[i] = { ...state.products[i], ...data };
-      toast('Product updated.');
-    } else {
-      state.products.push({ id: uid(), ...data });
-      toast('Product added.');
-    }
-
-    saveProducts();
-    renderProducts();
-    modal('productModal').hide();
-  });
+        modal('productModal').hide();
+    });
 }
+
+function renderCustomers() {
+    const tbody = $('#customersTable');
+    if (!state.customers.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted-gm py-4">No customers yet. Click "Add Customer".</td></tr>`;
+    } else {
+        tbody.innerHTML = state.customers.map(c => {
+            const orderCount = state.orders.filter(o => o.customerId === c.id).length;
+            return `
+        <tr>
+          <td class="fw-semibold">${esc(c.name)}</td>
+          <td>${esc(c.phone)}</td>
+          <td>${esc(c.email) || '<span class="text-muted-gm">-</span>'}</td>
+          <td>${esc(c.address) || '<span class="text-muted-gm">-</span>'}</td>
+          <td class="text-center"><span class="badge text-bg-light border">${orderCount}</span></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${c.id}" aria-label="Edit ${esc(c.name)}"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${c.id}" aria-label="Delete ${esc(c.name)}"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`;
+        }).join('');
+    }
+    populateCustomerSelects();
+}
+
+function populateCustomerSelects() {
+    const options = `<option value="">Walk-in Customer</option>` +
+        state.customers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join('');
+
+    const cartSelect = $('#cartCustomer');
+    const previous = cartSelect.value;
+    cartSelect.innerHTML = options;
+    cartSelect.value = state.customers.some(c => c.id === previous) ? previous : '';
+}
+// ===========================================================================
+
+// ===========================================================================
+
+function bindOrders() {
+    $('#orderStatusFilter').addEventListener('change', e => {
+        state.statusFilter = e.target.value;
+        renderOrders();
+    });
+
+    $('#ordersTable').addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+
+        if (btn.dataset.action === 'view') showReceipt(id);
+        if (btn.dataset.action === 'edit') openOrderEdit(id);
+        if (btn.dataset.action === 'delete') {
+            const o = state.orders.find(x => x.id === id);
+            confirmAction(`Delete order ${o.number}? This cannot be undone.`, () => {
+                state.orders = state.orders.filter(x => x.id !== id);
+                saveOrders();
+                renderOrders();
+                renderCustomers();
+                toast('Order deleted.');
+            });
+        }
+    });
+
+    $('#printReceiptBtn').addEventListener('click', () => window.print());
+
+    // Edit modal: quantity changes
+    $('#oeItems').addEventListener('input', e => {
+        const input = e.target.closest('input[data-idx]');
+        if (!input) return;
+        const qty = Math.max(1, parseInt(input.value, 10) || 1);
+        orderDraft.items[Number(input.dataset.idx)].qty = qty;
+        updateOrderEditTotals();
+    });
+
+    // Edit modal: remove an item
+    $('#oeItems').addEventListener('click', e => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+        orderDraft.items.splice(Number(btn.dataset.remove), 1);
+        renderOrderEditItems();
+    });
+
+    // Edit modal: add an item
+    $('#oeAddBtn').addEventListener('click', () => {
+        const p = state.products.find(x => x.id === $('#oeAddProduct').value);
+        if (!p) return;
+        const existing = orderDraft.items.find(i => i.productId === p.id);
+        if (existing) existing.qty += 1;
+        else orderDraft.items.push({ productId: p.id, name: p.name, price: p.price, qty: 1 });
+        renderOrderEditItems();
+    });
+
+    $('#oeDiscount').addEventListener('input', updateOrderEditTotals);
+
+    // Save changes (UPDATE)
+    $('#orderEditForm').addEventListener('submit', e => {
+        e.preventDefault();
+        if (!orderDraft.items.length) {
+            toast('An order needs at least one item.', 'warning');
+            return;
+        }
+
+        const i = state.orders.findIndex(o => o.id === $('#oeId').value);
+        if (i < 0) return;
+
+        // Work out the customer (keep the old one if it was deleted and untouched)
+        const selected = $('#oeCustomer').value;
+        let customerId = state.orders[i].customerId;
+        let customerName = state.orders[i].customerName;
+        if (selected !== '__deleted') {
+            const c = state.customers.find(x => x.id === selected);
+            customerId = c ? c.id : '';
+            customerName = c ? c.name : 'Walk-in Customer';
+        }
+
+        const discountPct = clampPct($('#oeDiscount').value);
+        state.orders[i] = {
+            ...state.orders[i],
+            customerId,
+            customerName,
+            status: $('#oeStatus').value,
+            payment: $('#oePayment').value,
+            items: orderDraft.items,
+            discountPct,
+            ...calcTotals(orderDraft.items, discountPct),
+            updatedAt: new Date().toISOString()
+        };
+
+        saveOrders();
+        renderOrders();
+        renderCustomers();
+        modal('orderEditModal').hide();
+        toast('Order updated.');
+    });
+}
+
+function renderAll() {
+    renderToday();
+    renderProducts();
+    renderCustomers();
+    renderOrders();
+    renderOrderNo();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadState();
+    bindNavigation();
+    bindMenu();
+    bindCart();
+    bindProducts();
+    bindCustomers();
+    bindOrders();
+    renderAll();
+});
