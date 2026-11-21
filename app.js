@@ -483,9 +483,207 @@ function populateCustomerSelects() {
     cartSelect.innerHTML = options;
     cartSelect.value = state.customers.some(c => c.id === previous) ? previous : '';
 }
-// ===========================================================================
 
-// ===========================================================================
+function openCustomerModal(id) {
+  const form = $('#customerForm');
+  form.reset();
+  form.classList.remove('was-validated');
+
+  const c = state.customers.find(x => x.id === id);
+  $('#customerModalTitle').textContent = c ? 'Edit Customer' : 'Add Customer';
+  $('#customerId').value      = c ? c.id : '';
+  $('#customerName').value    = c ? c.name : '';
+  $('#customerPhone').value   = c ? c.phone : '';
+  $('#customerEmail').value   = c ? c.email : '';
+  $('#customerAddress').value = c ? c.address : '';
+  modal('customerModal').show();
+}
+
+function bindCustomers() {
+  $('#addCustomerBtn').addEventListener('click', () => openCustomerModal());
+
+  $('#customersTable').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.action === 'edit') openCustomerModal(id);
+    if (btn.dataset.action === 'delete') {
+      const c = state.customers.find(x => x.id === id);
+      confirmAction(`Delete customer "${c.name}"? Their past orders will be kept.`, () => {
+        state.customers = state.customers.filter(x => x.id !== id);
+        saveCustomers();
+        renderCustomers();
+        renderOrders();
+        toast('Customer deleted.');
+      });
+    }
+  });
+
+  $('#customerForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const form = e.target;
+    if (!form.checkValidity()) {
+      form.classList.add('was-validated');
+      return;
+    }
+
+    const id = $('#customerId').value;
+    const data = {
+      name: $('#customerName').value.trim(),
+      phone: $('#customerPhone').value.trim(),
+      email: $('#customerEmail').value.trim(),
+      address: $('#customerAddress').value.trim()
+    };
+
+    if (id) {
+      const i = state.customers.findIndex(c => c.id === id);
+      state.customers[i] = { ...state.customers[i], ...data };
+      toast('Customer updated.');
+    } else {
+      state.customers.push({ id: uid(), ...data });
+      toast('Customer added.');
+    }
+
+    saveCustomers();
+    renderCustomers();
+    renderOrders();
+    modal('customerModal').hide();
+  });
+}
+
+const STATUS_BADGE = { Pending: 'text-bg-warning', Completed: 'text-bg-success', Cancelled: 'text-bg-secondary' };
+
+function orderCustomerName(o) {
+  const c = state.customers.find(x => x.id === o.customerId);
+  return c ? c.name : o.customerName;
+}
+
+function renderOrders() {
+  const list = state.orders.filter(o => state.statusFilter === 'All' || o.status === state.statusFilter);
+  const tbody = $('#ordersTable');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted-gm py-4">No orders to show.</td></tr>`;
+  } else {
+    tbody.innerHTML = list.map(o => `
+      <tr>
+        <td class="fw-semibold">${esc(o.number)}</td>
+        <td>${fmtDate(o.createdAt)}</td>
+        <td>${esc(orderCustomerName(o))}</td>
+        <td class="text-center">${o.items.reduce((n, i) => n + i.qty, 0)}</td>
+        <td class="text-end">${money(o.total)}</td>
+        <td>${esc(o.payment)}</td>
+        <td><span class="badge ${STATUS_BADGE[o.status] || 'text-bg-light'}">${esc(o.status)}</span></td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-secondary" data-action="view" data-id="${o.id}" aria-label="View ${esc(o.number)}"><i class="bi bi-eye"></i></button>
+          <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${o.id}" aria-label="Edit ${esc(o.number)}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${o.id}" aria-label="Delete ${esc(o.number)}"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`).join('');
+  }
+
+  $('#statTotal').textContent   = state.orders.length;
+  $('#statPending').textContent = state.orders.filter(o => o.status === 'Pending').length;
+  $('#statRevenue').textContent = money(
+    state.orders.filter(o => o.status === 'Completed').reduce((sum, o) => sum + o.total, 0)
+  );
+}
+
+function receiptHtml(o) {
+  const rows = o.items.map(i => `
+    <tr>
+      <td>${esc(i.name)}<br><small>${i.qty} x ${money(i.price)}</small></td>
+      <td class="text-end align-top">${money(i.price * i.qty)}</td>
+    </tr>`).join('');
+
+  return `
+    <div class="receipt">
+      <div class="text-center">
+        <h5 class="mb-0">GRILLMASTER</h5>
+        <small>Order ${esc(o.number)}</small><br>
+        <small>${fmtDate(o.createdAt)}</small>
+      </div>
+      <hr>
+      <div>Customer: ${esc(orderCustomerName(o))}</div>
+      <div>Payment: ${esc(o.payment)}</div>
+      <div>Status: ${esc(o.status)}</div>
+      <hr>
+      <table class="w-100"><tbody>${rows}</tbody></table>
+      <hr>
+      <div class="d-flex justify-content-between"><span>Subtotal</span><span>${money(o.subtotal)}</span></div>
+      <div class="d-flex justify-content-between"><span>Discount (${o.discountPct}%)</span><span>- ${money(o.discount)}</span></div>
+      <div class="d-flex justify-content-between"><span>Tax (${Math.round(CONFIG.taxRate * 100)}%)</span><span>${money(o.tax)}</span></div>
+      <div class="d-flex justify-content-between fw-bold fs-5 mt-1"><span>TOTAL</span><span>${money(o.total)}</span></div>
+      <hr>
+      <div class="text-center">Thank you! Come again.</div>
+    </div>`;
+}
+
+function showReceipt(id) {
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  $('#orderViewTitle').textContent = `Order ${o.number}`;
+  $('#receiptContent').innerHTML = receiptHtml(o);
+  modal('orderViewModal').show();
+}
+
+function populateOrderEditProducts() {
+  $('#oeAddProduct').innerHTML = state.products
+    .map(p => `<option value="${p.id}">${esc(p.name)} - ${money(p.price)}</option>`).join('');
+}
+
+function openOrderEdit(id) {
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  orderDraft = structuredClone(o);
+
+  const customerExists = !o.customerId || state.customers.some(c => c.id === o.customerId);
+  $('#oeCustomer').innerHTML =
+    `<option value="">Walk-in Customer</option>` +
+    state.customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('') +
+    (customerExists ? '' : `<option value="__deleted">${esc(o.customerName)} (deleted)</option>`);
+  $('#oeCustomer').value = customerExists ? o.customerId : '__deleted';
+
+  $('#orderEditTitle').textContent = `Edit ${o.number}`;
+  $('#oeId').value       = o.id;
+  $('#oeStatus').value   = o.status;
+  $('#oePayment').value  = o.payment;
+  $('#oeDiscount').value = o.discountPct;
+
+  populateOrderEditProducts();
+  renderOrderEditItems();
+  modal('orderEditModal').show();
+}
+
+function renderOrderEditItems() {
+  $('#oeItems').innerHTML = orderDraft.items.length
+    ? orderDraft.items.map((it, idx) => `
+        <tr>
+          <td>${esc(it.name)}</td>
+          <td class="text-end">${money(it.price)}</td>
+          <td><input type="number" class="form-control form-control-sm" min="1" step="1" value="${it.qty}" data-idx="${idx}" aria-label="Quantity for ${esc(it.name)}"></td>
+          <td class="text-end" data-line-total="${idx}">${money(it.price * it.qty)}</td>
+          <td class="text-end"><button type="button" class="btn btn-sm text-danger" data-remove="${idx}" aria-label="Remove ${esc(it.name)}"><i class="bi bi-x-lg"></i></button></td>
+        </tr>`).join('')
+    : `<tr><td colspan="5" class="text-center text-muted-gm py-3">No items. Add one below.</td></tr>`;
+  updateOrderEditTotals();
+}
+
+function updateOrderEditTotals() {
+    orderDraft.discountPct = clampPct($('#oeDiscount').value);
+    const t = calcTotals(orderDraft.items, orderDraft.discountPct);
+
+    $$('#oeItems [data-line-total]').forEach(td => {
+        const it = orderDraft.items[Number(td.dataset.lineTotal)];
+        td.textContent = money(it.price * it.qty);
+    });
+
+    $('#oeSubtotal').textContent = money(t.subtotal);
+    $('#oeDiscountAmt').textContent = t.discount ? `− ${money(t.discount)}` : money(0);
+    $('#oeTax').textContent = money(t.tax);
+    $('#oeTotal').textContent = money(t.total);
+}
 
 function bindOrders() {
     $('#orderStatusFilter').addEventListener('change', e => {
@@ -514,7 +712,6 @@ function bindOrders() {
 
     $('#printReceiptBtn').addEventListener('click', () => window.print());
 
-    // Edit modal: quantity changes
     $('#oeItems').addEventListener('input', e => {
         const input = e.target.closest('input[data-idx]');
         if (!input) return;
@@ -523,7 +720,6 @@ function bindOrders() {
         updateOrderEditTotals();
     });
 
-    // Edit modal: remove an item
     $('#oeItems').addEventListener('click', e => {
         const btn = e.target.closest('[data-remove]');
         if (!btn) return;
@@ -531,7 +727,6 @@ function bindOrders() {
         renderOrderEditItems();
     });
 
-    // Edit modal: add an item
     $('#oeAddBtn').addEventListener('click', () => {
         const p = state.products.find(x => x.id === $('#oeAddProduct').value);
         if (!p) return;
@@ -543,7 +738,6 @@ function bindOrders() {
 
     $('#oeDiscount').addEventListener('input', updateOrderEditTotals);
 
-    // Save changes (UPDATE)
     $('#orderEditForm').addEventListener('submit', e => {
         e.preventDefault();
         if (!orderDraft.items.length) {
