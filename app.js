@@ -315,7 +315,11 @@ function bindCart() {
         renderCart();
     });
 
-    $('#discountInput').addEventListener('input', renderCartTotals);
+    $('#discountInput').addEventListener('input', e => {
+        const pct = clampPct(e.target.value);
+        if (parseFloat(e.target.value) !== pct) e.target.value = pct;
+        renderCartTotals();
+    });
     $('#clearCartBtn').addEventListener('click', clearCart);
     $('#checkoutBtn').addEventListener('click', checkout);
 }
