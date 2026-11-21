@@ -96,6 +96,8 @@ h5,
 
 .side-nav-panel {
   flex: 0 0 auto;
+  position: relative;
+  isolation: isolate;
   height: fit-content;
   min-width: 0;
   display: flex;
@@ -122,7 +124,8 @@ h5,
 .side-link {
   flex: none;
   width: 65px;
-  padding: 10px 0;
+  height: 52px;
+  padding: 0;
   border: 0;
   border-radius: 20px;
   background: transparent;
@@ -134,27 +137,52 @@ h5,
   gap: 4px;
   font-size: 9px;
   font-weight: 600;
+  position: relative;
+  z-index: 1;
+  transition: color .2s ease, transform .2s ease;
 }
-
-.side-link i {
-  font-size: 22px;
-  line-height: 1;
-}
-
-.side-link:hover {
-  background: rgba(255, 255, 255, .08);
-  color: #fff;
-}
-
-.side-link.active {
-  background: var(--gm-brand);
-  color: #fff;
-}
-
+.side-link i { font-size: 22px; line-height: 1; }
+.side-link:hover { color: #fff; transform: translateY(-1px); }
+.side-link.active { background: var(--gm-brand); color: #fff; }
 .side-logo:focus-visible,
 .side-link:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
+}
+
+@supports selector(.side-nav-panel:has(> .side-link.active)) {
+  .side-nav-panel::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: 6px;
+    left: 6px;
+    width: 65px;
+    height: 52px;
+    border-radius: 20px;
+    background: var(--gm-brand);
+    box-shadow: 0 4px 12px rgba(194, 65, 12, .28);
+    pointer-events: none;
+    transform: translateX(var(--active-link-x, 0px));
+    transition: transform .36s cubic-bezier(.2, .8, .2, 1);
+  }
+  .side-nav-panel:has(> .side-link:nth-child(1).active) {
+    --active-link-x: 0px;
+    --active-link-y: 0px;
+  }
+  .side-nav-panel:has(> .side-link:nth-child(2).active) {
+    --active-link-x: 69px;
+    --active-link-y: 68px;
+  }
+  .side-nav-panel:has(> .side-link:nth-child(3).active) {
+    --active-link-x: 138px;
+    --active-link-y: 136px;
+  }
+  .side-nav-panel:has(> .side-link:nth-child(4).active) {
+    --active-link-x: 207px;
+    --active-link-y: 204px;
+  }
+  .side-link.active { background: transparent; }
 }
 
 @media (min-width: 992px) {
@@ -203,16 +231,24 @@ h5,
     border-radius: 24px;
     overflow-x: visible;
   }
+  .side-link { width: 65px; height: 60px; gap: 6px; }
+  .side-link i { font-size: 24px; }
+}
 
-  .side-link {
-    width: 65px;
-    padding: 12px 0;
-    gap: 6px;
+@media (min-width: 992px) {
+  @supports selector(.side-nav-panel:has(> .side-link.active)) {
+    .side-nav-panel::before {
+      top: 8px;
+      left: 50%;
+      height: 60px;
+      transform: translate(-50%, var(--active-link-y, 0px));
+    }
   }
+}
 
-  .side-link i {
-    font-size: 24px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .side-nav-panel::before,
+  .side-link { transition: none; }
 }
 
 /* ---------- Buttons ---------- */
@@ -387,17 +423,17 @@ textarea.form-control {
 
 .add-btn {
   flex: none;
-  width: 44px;
-  height: 44px;
-  margin: -6px -4px -6px 0;
+  width: clamp(36px, 10vw, 40px);
+  height: clamp(36px, 10vw, 40px);
+  margin: -4px -2px -4px 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: clamp(10px, 2.8vw, 11px);
   background: var(--gm-dark);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: clamp(.95rem, 4vw, 1rem);
 }
 
 .add-btn:hover {
@@ -509,37 +545,50 @@ textarea.form-control {
 }
 
 @media (min-width: 992px) {
-
-  /* Cart becomes a full-height white column that stays in view */
+  /* Keep the cart anchored to the edge while presenting it as a floating card. */
   .cart-col {
     flex: none;
-    width: 360px;
+    width: 392px;
     height: 100vh;
     position: sticky;
     top: 0;
     display: flex;
     flex-direction: column;
-    background: #fff;
-    border-left: 1px solid var(--gm-line-soft);
-    overflow-y: auto;
+    padding: 16px 16px 16px 0;
   }
-
   #cartPanel {
     display: flex;
     flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 1px solid var(--gm-line-soft);
+    border-radius: 24px;
+    box-shadow: 0 12px 32px rgba(30, 30, 34, .12);
+    overflow: hidden;
   }
+  #cartPanel .offcanvas-body { flex: 1 1 auto; }
+  .cart-box { padding: 24px; }
+  .cart-items { max-height: none; flex: 0 1 auto; }
+}
 
-  #cartPanel .offcanvas-body {
-    flex: 1 1 auto;
+@media (max-width: 991.98px) {
+  #cartPanel.offcanvas-lg {
+    inset: 50% auto auto 50%;
+    width: min(460px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    height: min(720px, calc(100vh - 32px));
+    border: 0;
+    border-radius: 24px;
+    box-shadow: 0 16px 48px rgba(30, 30, 34, .24);
+    transform: translate(-50%, -50%) scale(.98);
   }
-
-  .cart-box {
-    padding: 24px;
+  #cartPanel.offcanvas-lg.show {
+    transform: translate(-50%, -50%) scale(1);
   }
-
-  .cart-items {
-    max-height: none;
-    flex: 0 1 auto;
+  #cartPanel.offcanvas-lg .offcanvas-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -557,6 +606,12 @@ textarea.form-control {
   }
 
   /* keep content clear of the floating button */
+}
+
+.badge {
+  --bs-badge-padding-x: 0.55em;
+  --bs-badge-padding-y: 0.35em;
+  border-radius: 0.65rem;
 }
 
 /* ---------- Cards, tables, stats ---------- */
