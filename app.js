@@ -36,7 +36,7 @@ const SEED_CUSTOMERS = [
     { name: 'Kavindi Silva', phone: '0712345678', email: '', address: 'Temple Road, Panadura' }
 ];
 
-const TINTS = { Burgers: '#E8C4A5', Fries: '#E8D19A', Drinks: '#DCC9B5' };
+const TINTS = { Burgers: 'var(--surface-panel)', Fries: 'var(--surface-panel)', Drinks: 'var(--surface-panel)' };
 
 const GLYPHS = {
     Burgers: s => `<svg viewBox="0 0 64 64" width="${s}" height="${s}" aria-hidden="true"><path d="M8 28c0-11 10-18 24-18s24 7 24 18z" fill="#E9A23B"/><rect x="6" y="31" width="52" height="6" rx="3" fill="#5B8C2A"/><rect x="8" y="38" width="48" height="8" rx="4" fill="#6B3A22"/><path d="M8 48h48c0 6-5 9-10 9H18c-5 0-10-3-10-9z" fill="#E9A23B"/></svg>`,
@@ -671,7 +671,7 @@ function renderOrderEditItems() {
         <tr>
           <td>${esc(it.name)}</td>
           <td class="text-end">${money(it.price)}</td>
-          <td><input type="number" class="form-control form-control-sm" min="1" step="1" value="${it.qty}" data-idx="${idx}" aria-label="Quantity for ${esc(it.name)}"></td>
+          <td><input type="number" class="form-control form-control-sm" style="text-align: center" min="1" step="1" value="${it.qty}" data-idx="${idx}" aria-label="Quantity for ${esc(it.name)}"></td>
           <td class="text-end" data-line-total="${idx}">${money(it.price * it.qty)}</td>
           <td class="text-end"><button type="button" class="btn btn-sm text-danger" data-remove="${idx}" aria-label="Remove ${esc(it.name)}"><i class="bi bi-x-lg"></i></button></td>
         </tr>`).join('')
