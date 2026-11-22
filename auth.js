@@ -19,6 +19,7 @@ const GMAuth = (() => {
             checkout: true,
             view_orders: true,
             view_order_details: true,
+            manage_customers: true,
             manage_orders: true,
             management_dashboard: true,
             sales_reports: true,
@@ -35,6 +36,7 @@ const GMAuth = (() => {
             checkout: true,
             view_orders: true,
             view_order_details: true,
+            manage_customers: true,
             manage_orders: true,
             management_dashboard: true,
             sales_reports: true,
@@ -213,6 +215,10 @@ const GMAuth = (() => {
         const users = readUsers();
         const user = users.find(candidate => candidate.id === userId);
         if (!user) return false;
+        if (user.active && user.role === 'admin' && role !== 'admin') {
+            const activeAdmins = users.filter(candidate => candidate.role === 'admin' && candidate.active);
+            if (activeAdmins.length <= 1) return false;
+        }
         user.role = role;
         user.updatedAt = new Date().toISOString();
         return saveUsers(users);

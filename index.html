@@ -101,6 +101,10 @@
 
     <!-- ===================== SIDEBAR (top bar on phones/tablets) ===================== -->
     <nav class="gm-sidebar" id="mainNav" aria-label="Main">
+      <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-expanded="false"
+        aria-controls="sideNavPanel">
+        <i class="bi bi-list" aria-hidden="true"></i><span>Menu</span>
+      </button>
       <div class="side-logo-panel">
         <button type="button" class="side-logo" data-view="pos" aria-label="GrillMaster POS home">
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--on-primary)" stroke-width="1.8"
@@ -111,19 +115,16 @@
           </svg>
         </button>
       </div>
-      <div class="side-nav-panel">
+      <div class="side-nav-panel" id="sideNavPanel">
         <div class="side-user d-none" id="currentUserBadge" title="Current user"></div>
-        <button type="button" class="side-link active cashier-direct" data-view="pos"><i class="bi bi-cart3 fs-5"
+        <button type="button" class="side-link active" data-view="pos"><i class="bi bi-cart3 fs-5"
             aria-hidden="true"></i><span>New Order</span></button>
-        <button type="button" class="side-link cashier-direct" data-view="products"><i class="bi bi-grid fs-5"
+        <button type="button" class="side-link" data-view="products"><i class="bi bi-grid fs-5"
             aria-hidden="true"></i><span>Products</span></button>
-        <button type="button" class="side-link cashier-direct" data-view="customers"><i class="bi bi-people fs-5"
+        <button type="button" class="side-link" data-view="customers"><i class="bi bi-people fs-5"
             aria-hidden="true"></i><span>Customers</span></button>
-        <button type="button" class="side-link cashier-direct" data-view="orders"><i class="bi bi-receipt fs-5"
+        <button type="button" class="side-link" data-view="orders"><i class="bi bi-receipt fs-5"
             aria-hidden="true"></i><span>Orders</span></button>
-        <button type="button" class="side-link d-none" id="cashierMenuBtn" aria-expanded="false" aria-controls="cashierMenu">
-          <i class="bi bi-shop fs-5" aria-hidden="true"></i><span>Cashier</span>
-        </button>
         <button type="button" class="side-link d-none" data-view="management" data-permission="management_dashboard"><i class="bi bi-speedometer2 fs-5"
             aria-hidden="true"></i><span>Dashboard</span></button>
         <button type="button" class="side-link d-none" data-view="sales" data-permission="sales_reports"><i class="bi bi-bar-chart-line fs-5"
@@ -140,13 +141,6 @@
             aria-hidden="true"></i><span>Sign out</span></button>
       </div>
     </nav>
-
-    <div class="cashier-menu d-none" id="cashierMenu" aria-label="Cashier navigation">
-      <button type="button" class="cashier-menu-item" data-view="pos"><i class="bi bi-cart3"></i><span>New Order</span></button>
-      <button type="button" class="cashier-menu-item" data-view="products"><i class="bi bi-grid"></i><span>Products</span></button>
-      <button type="button" class="cashier-menu-item" data-view="customers"><i class="bi bi-people"></i><span>Customers</span></button>
-      <button type="button" class="cashier-menu-item" data-view="orders"><i class="bi bi-receipt"></i><span>Orders</span></button>
-    </div>
 
     <div class="app-content">
 
@@ -344,7 +338,7 @@
       </section>
 
       <!-- ===================== MANAGEMENT PLACEHOLDERS ===================== -->
-      <section id="view-management" class="view page-pad d-none" data-required-permission="management_dashboard">
+      <section id="view-management" class="view page-pad dashboard-page d-none" data-required-permission="management_dashboard">
         <h1 class="page-title mb-3">Management Dashboard</h1>
         <div class="row g-3 mb-3" id="managementSummary">
           <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Today</div><div class="fs-5 fw-bold" id="dashboardTodayRevenue">Rs. 0.00</div></div></div></div>
@@ -355,30 +349,30 @@
           <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Low Stock</div><div class="fs-4 fw-bold" id="dashboardLowStock">0</div></div></div></div>
         </div>
 
-        <div class="row g-3">
-          <div class="col-12 col-xl-8">
-            <div class="card card-gm h-100"><div class="card-body">
+        <div class="dashboard-chart-grid">
+          <div class="card card-gm dashboard-chart-card">
+            <div class="card-body">
               <h2 class="h6 mb-3">Daily Sales Trend</h2>
               <div class="chart-wrap"><canvas id="dailySalesChart" role="img" aria-label="Daily sales for the last seven days"></canvas><div class="chart-empty d-none" id="dailySalesEmpty">No completed sales yet.</div></div>
-            </div></div>
+            </div>
           </div>
-          <div class="col-12 col-xl-4">
-            <div class="card card-gm h-100"><div class="card-body">
+          <div class="card card-gm dashboard-chart-card">
+            <div class="card-body">
               <h2 class="h6 mb-3">Sales by Payment Method</h2>
               <div class="chart-wrap"><canvas id="paymentChart" role="img" aria-label="Sales by payment method"></canvas><div class="chart-empty d-none" id="paymentEmpty">No completed sales yet.</div></div>
-            </div></div>
+            </div>
           </div>
-          <div class="col-12 col-xl-7">
-            <div class="card card-gm h-100"><div class="card-body">
+          <div class="card card-gm dashboard-chart-card">
+            <div class="card-body">
               <h2 class="h6 mb-3">Monthly Revenue Comparison</h2>
               <div class="chart-wrap"><canvas id="monthlyRevenueChart" role="img" aria-label="Monthly revenue for the last twelve months"></canvas><div class="chart-empty d-none" id="monthlyRevenueEmpty">No completed sales yet.</div></div>
-            </div></div>
+            </div>
           </div>
-          <div class="col-12 col-xl-5">
-            <div class="card card-gm h-100"><div class="card-body">
+          <div class="card card-gm dashboard-chart-card">
+            <div class="card-body">
               <h2 class="h6 mb-3">Best-Selling Products</h2>
               <div class="chart-wrap"><canvas id="bestProductsChart" role="img" aria-label="Best-selling products"></canvas><div class="chart-empty d-none" id="bestProductsEmpty">No completed sales yet.</div></div>
-            </div></div>
+            </div>
           </div>
         </div>
       </section>
@@ -574,7 +568,8 @@
           </div>
           <div class="mb-3">
             <label for="customerPhone" class="form-label">Phone</label>
-            <input type="tel" id="customerPhone" class="form-control" pattern="[0-9+\-\s()]{7,15}" required>
+            <input type="tel" id="customerPhone" class="form-control"
+              pattern="(?=(?:\D*\d){7,15}\D*$)[0-9+\s\(\)\x2d]{7,24}" maxlength="24" required>
             <div class="invalid-feedback">Enter a valid phone number (7-15 digits).</div>
           </div>
           <div class="mb-3">
