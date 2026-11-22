@@ -63,12 +63,36 @@
         <p class="login-error d-none" id="loginError" role="alert">That username or password is incorrect.</p>
         <button type="submit" class="btn btn-brand w-100 login-submit">Sign in <i
             class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button>
+      </form>
 
-        <div class="demo-credentials mt-4">
-          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-          Demo login: <strong>admin</strong> / <strong>grillmaster</strong>
-          <span>Demo only — not secure authentication.</span>
+      <form class="login-card d-none" id="setupForm" novalidate>
+        <div class="login-mark"><i class="bi bi-person-gear" aria-hidden="true"></i></div>
+        <p class="login-eyebrow text-muted-gm mb-2">FIRST-TIME SETUP</p>
+        <h2 class="page-title mb-2">Create administrator</h2>
+        <p class="text-muted-gm mb-4">Choose credentials for this local prototype.</p>
+
+        <div class="mb-3">
+          <label for="setupUsername" class="form-label">Username</label>
+          <input type="text" class="form-control" id="setupUsername" autocomplete="username" required>
         </div>
+        <div class="mb-3">
+          <label for="setupEmail" class="form-label">Email</label>
+          <input type="email" class="form-control" id="setupEmail" autocomplete="email" required>
+        </div>
+        <div class="mb-3">
+          <label for="setupPassword" class="form-label">Password</label>
+          <input type="password" class="form-control" id="setupPassword" minlength="8"
+            autocomplete="new-password" required>
+        </div>
+        <div class="mb-3">
+          <label for="setupPasswordConfirm" class="form-label">Confirm password</label>
+          <input type="password" class="form-control" id="setupPasswordConfirm" minlength="8"
+            autocomplete="new-password" required>
+        </div>
+
+        <p class="login-error d-none" id="setupError" role="alert"></p>
+        <button type="submit" class="btn btn-brand w-100 login-submit">Create administrator</button>
+        <p class="small text-muted-gm mt-3 mb-0">This prototype stores authentication in localStorage and is not suitable for protecting real business data.</p>
       </form>
     </section>
   </main>
@@ -88,18 +112,41 @@
         </button>
       </div>
       <div class="side-nav-panel">
-        <button type="button" class="side-link active" data-view="pos"><i class="bi bi-cart3 fs-5"
+        <div class="side-user d-none" id="currentUserBadge" title="Current user"></div>
+        <button type="button" class="side-link active cashier-direct" data-view="pos"><i class="bi bi-cart3 fs-5"
             aria-hidden="true"></i><span>New Order</span></button>
-        <button type="button" class="side-link" data-view="products"><i class="bi bi-grid fs-5"
+        <button type="button" class="side-link cashier-direct" data-view="products"><i class="bi bi-grid fs-5"
             aria-hidden="true"></i><span>Products</span></button>
-        <button type="button" class="side-link" data-view="customers"><i class="bi bi-people fs-5"
+        <button type="button" class="side-link cashier-direct" data-view="customers"><i class="bi bi-people fs-5"
             aria-hidden="true"></i><span>Customers</span></button>
-        <button type="button" class="side-link" data-view="orders"><i class="bi bi-receipt fs-5"
+        <button type="button" class="side-link cashier-direct" data-view="orders"><i class="bi bi-receipt fs-5"
             aria-hidden="true"></i><span>Orders</span></button>
+        <button type="button" class="side-link d-none" id="cashierMenuBtn" aria-expanded="false" aria-controls="cashierMenu">
+          <i class="bi bi-shop fs-5" aria-hidden="true"></i><span>Cashier</span>
+        </button>
+        <button type="button" class="side-link d-none" data-view="management" data-permission="management_dashboard"><i class="bi bi-speedometer2 fs-5"
+            aria-hidden="true"></i><span>Dashboard</span></button>
+        <button type="button" class="side-link d-none" data-view="sales" data-permission="sales_reports"><i class="bi bi-bar-chart-line fs-5"
+            aria-hidden="true"></i><span>Sales</span></button>
+        <button type="button" class="side-link d-none" data-view="employees" data-permission="manage_employees"><i class="bi bi-person-badge fs-5"
+            aria-hidden="true"></i><span>Employees</span></button>
+        <button type="button" class="side-link d-none" data-view="inventory" data-permission="manage_inventory"><i class="bi bi-box-seam fs-5"
+            aria-hidden="true"></i><span>Inventory</span></button>
+        <button type="button" class="side-link d-none" data-view="users" data-permission="manage_users"><i class="bi bi-person-gear fs-5"
+            aria-hidden="true"></i><span>Users</span></button>
+        <button type="button" class="side-link d-none" data-view="settings" data-permission="manage_system_settings"><i class="bi bi-gear fs-5"
+            aria-hidden="true"></i><span>Settings</span></button>
         <button type="button" class="side-link" id="logoutBtn"><i class="bi bi-box-arrow-right fs-5"
             aria-hidden="true"></i><span>Sign out</span></button>
       </div>
     </nav>
+
+    <div class="cashier-menu d-none" id="cashierMenu" aria-label="Cashier navigation">
+      <button type="button" class="cashier-menu-item" data-view="pos"><i class="bi bi-cart3"></i><span>New Order</span></button>
+      <button type="button" class="cashier-menu-item" data-view="products"><i class="bi bi-grid"></i><span>Products</span></button>
+      <button type="button" class="cashier-menu-item" data-view="customers"><i class="bi bi-people"></i><span>Customers</span></button>
+      <button type="button" class="cashier-menu-item" data-view="orders"><i class="bi bi-receipt"></i><span>Orders</span></button>
+    </div>
 
     <div class="app-content">
 
@@ -296,6 +343,170 @@
         </div>
       </section>
 
+      <!-- ===================== MANAGEMENT PLACEHOLDERS ===================== -->
+      <section id="view-management" class="view page-pad d-none" data-required-permission="management_dashboard">
+        <h1 class="page-title mb-3">Management Dashboard</h1>
+        <div class="row g-3 mb-3" id="managementSummary">
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Today</div><div class="fs-5 fw-bold" id="dashboardTodayRevenue">Rs. 0.00</div></div></div></div>
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">This Month</div><div class="fs-5 fw-bold" id="dashboardMonthRevenue">Rs. 0.00</div></div></div></div>
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Total Orders</div><div class="fs-4 fw-bold" id="dashboardTotalOrders">0</div></div></div></div>
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Total Products</div><div class="fs-4 fw-bold" id="dashboardTotalProducts">0</div></div></div></div>
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Total Employees</div><div class="fs-4 fw-bold" id="dashboardTotalEmployees">0</div></div></div></div>
+          <div class="col-6 col-xl-2"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Low Stock</div><div class="fs-4 fw-bold" id="dashboardLowStock">0</div></div></div></div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-xl-8">
+            <div class="card card-gm h-100"><div class="card-body">
+              <h2 class="h6 mb-3">Daily Sales Trend</h2>
+              <div class="chart-wrap"><canvas id="dailySalesChart" role="img" aria-label="Daily sales for the last seven days"></canvas><div class="chart-empty d-none" id="dailySalesEmpty">No completed sales yet.</div></div>
+            </div></div>
+          </div>
+          <div class="col-12 col-xl-4">
+            <div class="card card-gm h-100"><div class="card-body">
+              <h2 class="h6 mb-3">Sales by Payment Method</h2>
+              <div class="chart-wrap"><canvas id="paymentChart" role="img" aria-label="Sales by payment method"></canvas><div class="chart-empty d-none" id="paymentEmpty">No completed sales yet.</div></div>
+            </div></div>
+          </div>
+          <div class="col-12 col-xl-7">
+            <div class="card card-gm h-100"><div class="card-body">
+              <h2 class="h6 mb-3">Monthly Revenue Comparison</h2>
+              <div class="chart-wrap"><canvas id="monthlyRevenueChart" role="img" aria-label="Monthly revenue for the last twelve months"></canvas><div class="chart-empty d-none" id="monthlyRevenueEmpty">No completed sales yet.</div></div>
+            </div></div>
+          </div>
+          <div class="col-12 col-xl-5">
+            <div class="card card-gm h-100"><div class="card-body">
+              <h2 class="h6 mb-3">Best-Selling Products</h2>
+              <div class="chart-wrap"><canvas id="bestProductsChart" role="img" aria-label="Best-selling products"></canvas><div class="chart-empty d-none" id="bestProductsEmpty">No completed sales yet.</div></div>
+            </div></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-sales" class="view page-pad d-none" data-required-permission="sales_reports">
+        <h1 class="page-title mb-3">Sales Reports</h1>
+        <div class="card card-gm mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-sm-6 col-lg-3">
+                <label for="salesPeriod" class="form-label small text-muted-gm mb-1">Report period</label>
+                <select id="salesPeriod" class="form-select">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                  <option value="custom">Custom range</option>
+                </select>
+              </div>
+              <div class="col-6 col-lg-3 d-none" id="salesStartWrap">
+                <label for="salesStartDate" class="form-label small text-muted-gm mb-1">Start date</label>
+                <input type="date" class="form-control" id="salesStartDate">
+              </div>
+              <div class="col-6 col-lg-3 d-none" id="salesEndWrap">
+                <label for="salesEndDate" class="form-label small text-muted-gm mb-1">End date</label>
+                <input type="date" class="form-control" id="salesEndDate">
+              </div>
+              <div class="col-12 col-lg-3 d-flex justify-content-lg-end">
+                <button type="button" class="btn btn-outline-gm" id="exportSalesCsv">
+                  <i class="bi bi-download"></i> Export CSV
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Total Revenue</div><div class="fs-5 fw-bold" id="salesRevenue">Rs. 0.00</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Completed Orders</div><div class="fs-4 fw-bold" id="salesOrders">0</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Items Sold</div><div class="fs-4 fw-bold" id="salesItems">0</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Average Order</div><div class="fs-5 fw-bold" id="salesAverage">Rs. 0.00</div></div></div></div>
+        </div>
+
+        <div class="card card-gm">
+          <div class="card-body border-bottom">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <h2 class="h6 mb-0" id="salesRangeLabel">Today's sales</h2>
+              <span class="small text-muted-gm" id="salesRowCount">0 records</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th class="text-center">Items</th>
+                  <th>Payment</th>
+                  <th class="text-end">Subtotal</th>
+                  <th class="text-end">Tax</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody id="salesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-employees" class="view page-pad d-none" data-required-permission="manage_employees">
+        <h1 class="page-title mb-3">Employee Management</h1>
+        <div class="card card-gm mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-5"><label for="employeeSearch" class="form-label small text-muted-gm mb-1">Search</label><input type="search" id="employeeSearch" class="form-control" placeholder="Name, email or employee ID"></div>
+              <div class="col-6 col-md-3"><label for="employeePositionFilter" class="form-label small text-muted-gm mb-1">Position</label><select id="employeePositionFilter" class="form-select"><option value="All">All positions</option><option>Cashier</option><option>Manager</option><option>Administrator</option></select></div>
+              <div class="col-6 col-md-2"><label for="employeeStatusFilter" class="form-label small text-muted-gm mb-1">Status</label><select id="employeeStatusFilter" class="form-select"><option value="All">All</option><option>Active</option><option>Inactive</option></select></div>
+              <div class="col-12 col-md-2 d-grid"><button type="button" class="btn btn-brand" id="addEmployeeBtn"><i class="bi bi-person-plus"></i> Add</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card-gm"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>ID</th><th>Name</th><th>Position</th><th>User Role</th><th>Joined</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody id="employeesTable"></tbody></table></div></div>
+      </section>
+
+      <section id="view-inventory" class="view page-pad d-none" data-required-permission="manage_inventory">
+        <h1 class="page-title mb-3">Inventory Management</h1>
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">In Stock</div><div class="fs-4 fw-bold" id="inventoryInStock">0</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Low Stock</div><div class="fs-4 fw-bold" id="inventoryLowStock">0</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="card card-gm stat-card h-100"><div class="card-body"><div class="text-muted-gm small">Out of Stock</div><div class="fs-4 fw-bold" id="inventoryOutStock">0</div></div></div></div>
+          <div class="col-6 col-lg-3 d-grid"><button type="button" class="btn btn-brand align-self-end" id="initializeInventoryBtn"><i class="bi bi-box-seam"></i> Initialize Products</button></div>
+        </div>
+        <div class="card card-gm mb-3">
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-12 col-md-6"><label for="inventorySearch" class="form-label small text-muted-gm mb-1">Search</label><input type="search" id="inventorySearch" class="form-control" placeholder="Search products"></div>
+              <div class="col-6 col-md-3"><label for="inventoryCategoryFilter" class="form-label small text-muted-gm mb-1">Category</label><select id="inventoryCategoryFilter" class="form-select"><option value="All">All categories</option></select></div>
+              <div class="col-6 col-md-3"><label for="inventoryStatusFilter" class="form-label small text-muted-gm mb-1">Stock status</label><select id="inventoryStatusFilter" class="form-select"><option value="All">All status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card-gm mb-3"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Product ID</th><th>Product</th><th>Category</th><th class="text-end">Quantity</th><th class="text-end">Minimum</th><th class="text-end">Unit Price</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody id="inventoryTable"></tbody></table></div></div>
+        <div class="card card-gm"><div class="card-body"><h2 class="h6 mb-3">Recent Stock Movements</h2><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Date</th><th>Product</th><th>Type</th><th class="text-end">Quantity</th><th>Reference</th><th>Note</th></tr></thead><tbody id="stockMovementsTable"></tbody></table></div></div></div>
+      </section>
+
+      <section id="view-users" class="view page-pad d-none" data-required-permission="manage_users">
+        <h1 class="page-title mb-3">User Management</h1>
+        <div class="card card-gm mb-3"><div class="card-body"><div class="row g-2 align-items-end"><div class="col-12 col-md-5"><label for="userSearch" class="form-label small text-muted-gm mb-1">Search</label><input type="search" id="userSearch" class="form-control" placeholder="Username or email"></div><div class="col-6 col-md-3"><label for="userRoleFilter" class="form-label small text-muted-gm mb-1">Role</label><select id="userRoleFilter" class="form-select"><option value="All">All roles</option><option value="cashier">Cashier</option><option value="manager">Manager</option><option value="admin">Administrator</option></select></div><div class="col-6 col-md-2"><label for="userStatusFilter" class="form-label small text-muted-gm mb-1">Status</label><select id="userStatusFilter" class="form-select"><option value="All">All</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div><div class="col-12 col-md-2 d-grid"><button type="button" class="btn btn-brand" id="addUserBtn"><i class="bi bi-person-plus"></i> Add</button></div></div></div></div>
+        <div class="card card-gm"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody id="usersTable"></tbody></table></div></div>
+      </section>
+
+      <section id="view-settings" class="view page-pad d-none" data-required-permission="manage_system_settings">
+        <h1 class="page-title mb-3">System Settings</h1>
+        <form class="card card-gm" id="settingsForm">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6"><label for="settingsStoreName" class="form-label">Store name</label><input type="text" id="settingsStoreName" class="form-control" maxlength="60"></div>
+              <div class="col-md-6"><label for="settingsCounter" class="form-label">Counter name</label><input type="text" id="settingsCounter" class="form-control" maxlength="60"></div>
+              <div class="col-md-4"><label for="settingsCurrency" class="form-label">Currency label</label><input type="text" id="settingsCurrency" class="form-control" maxlength="12"></div>
+              <div class="col-md-4"><label for="settingsTaxRate" class="form-label">Tax rate (%)</label><input type="number" id="settingsTaxRate" class="form-control" min="0" max="100" step="0.1"></div>
+              <div class="col-md-4"><label for="settingsLowStock" class="form-label">Default minimum stock</label><input type="number" id="settingsLowStock" class="form-control" min="0" step="1"></div>
+            </div>
+          </div>
+          <div class="card-footer border-0 d-flex justify-content-end"><button type="submit" class="btn btn-brand">Save Settings</button></div>
+        </form>
+      </section>
+
       <footer class="text-center text-muted-gm small py-3">GrillMaster POS &middot; ICET Certified Developer Coursework
       </footer>
     </div>
@@ -486,6 +697,49 @@
     </div>
   </div>
 
+  <!-- ===================== MODAL: EMPLOYEE ===================== -->
+  <div class="modal fade" id="employeeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content" id="employeeForm" novalidate>
+      <div class="modal-header"><h5 class="modal-title" id="employeeModalTitle">Add Employee</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><input type="hidden" id="employeeId"><div class="row g-3">
+        <div class="col-sm-6"><label for="employeeName" class="form-label">Full name</label><input type="text" id="employeeName" class="form-control" maxlength="60" required></div>
+        <div class="col-sm-6"><label for="employeeEmail" class="form-label">Email</label><input type="email" id="employeeEmail" class="form-control" required></div>
+        <div class="col-sm-6"><label for="employeePhone" class="form-label">Phone</label><input type="tel" id="employeePhone" class="form-control" maxlength="20" required></div>
+        <div class="col-sm-6"><label for="employeePosition" class="form-label">Position</label><select id="employeePosition" class="form-select"><option>Cashier</option><option>Manager</option><option>Administrator</option></select></div>
+        <div class="col-sm-6"><label for="employeeRole" class="form-label">User role</label><select id="employeeRole" class="form-select"><option value="cashier">Cashier</option><option value="manager">Manager</option><option value="admin">Administrator</option></select></div>
+        <div class="col-sm-6"><label for="employeeDateJoined" class="form-label">Date joined</label><input type="date" id="employeeDateJoined" class="form-control" required></div>
+        <div class="col-sm-6"><label for="employeeStatus" class="form-label">Account status</label><select id="employeeStatus" class="form-select"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+      </div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-gm" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-brand">Save</button></div>
+    </form></div>
+  </div>
+
+  <div class="modal fade" id="inventoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content" id="inventoryForm" novalidate>
+      <input type="hidden" id="inventoryProductId">
+      <div class="modal-header"><h5 class="modal-title" id="inventoryModalTitle">Update Inventory</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><div class="row g-3">
+        <div class="col-12"><label for="inventoryQuantity" class="form-label">Current quantity</label><input type="number" id="inventoryQuantity" class="form-control" min="0" step="1" required></div>
+        <div class="col-12"><label for="inventoryMinimum" class="form-label">Minimum stock level</label><input type="number" id="inventoryMinimum" class="form-control" min="0" step="1" required></div>
+        <div class="col-12"><label for="inventoryMovementNote" class="form-label">Movement note</label><input type="text" id="inventoryMovementNote" class="form-control" maxlength="100" placeholder="Opening stock, correction, restock..."></div>
+      </div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-gm" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-brand">Save Stock</button></div>
+    </form></div>
+  </div>
+
+  <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content" id="userForm" novalidate>
+      <div class="modal-header"><h5 class="modal-title">Create User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label for="userUsername" class="form-label">Username</label><input type="text" id="userUsername" class="form-control" minlength="3" maxlength="40" required></div>
+        <div class="mb-3"><label for="userEmail" class="form-label">Email</label><input type="email" id="userEmail" class="form-control" required></div>
+        <div class="mb-3"><label for="userPassword" class="form-label">Password</label><input type="password" id="userPassword" class="form-control" minlength="8" autocomplete="new-password" required></div>
+        <div><label for="userRole" class="form-label">Role</label><select id="userRole" class="form-select"><option value="cashier">Cashier</option><option value="manager">Manager</option><option value="admin">Administrator</option></select></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-gm" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-brand">Create Account</button></div>
+    </form></div>
+  </div>
+
   <!-- ===================== MODAL: CONFIRM DELETE ===================== -->
   <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -507,6 +761,7 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastArea"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 
