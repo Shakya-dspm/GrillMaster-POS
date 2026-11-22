@@ -53,6 +53,8 @@ const money = n => `${CONFIG.currency} ${Number(n || 0).toLocaleString('en-LK', 
 
 const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
 
+const formatPercent = value => Number(value).toLocaleString('en-LK', { maximumFractionDigits: 2 });
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -76,9 +78,11 @@ const store = {
     save(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
+            return true;
         } catch (err) {
             console.error('Could not save', key, err);
             toast('Storage is full or unavailable.', 'danger');
+            return false;
         }
     }
 };
@@ -185,9 +189,9 @@ function calcTotals(items, discountPct) {
     return { subtotal, discount, tax, total };
 }
 
-function closeCashierMenu() {
-    $('#cashierMenu').classList.add('d-none');
-    $('#cashierMenuBtn').setAttribute('aria-expanded', 'false');
+function closeMobileNav() {
+    $('#mainNav').classList.remove('mobile-nav-open');
+    $('#mobileNavToggle').setAttribute('aria-expanded', 'false');
 }
 
 function showView(name) {
@@ -203,19 +207,11 @@ function showView(name) {
         return;
     }
     $$('.view').forEach(v => v.classList.toggle('d-none', v.id !== `view-${name}`));
-    $$('#mainNav .side-link').forEach(l => {
-        if (l.classList.contains('cashier-direct')) {
-            l.classList.toggle('active', l.dataset.view === name);
-        }
-    });
-    $('#cashierMenuBtn').classList.toggle(
-        'active',
-        ['pos', 'products', 'customers', 'orders'].includes(name)
+    $$('#mainNav [data-view]').forEach(link =>
+        link.classList.toggle('active', link.dataset.view === name)
     );
-    $$('#cashierMenu [data-view]').forEach(item =>
-        item.classList.toggle('active', item.dataset.view === name)
-    );
-    closeCashierMenu();
+    closeMobileNav();
+    if (name === 'pos') renderMenu();
     $('#cartFab').classList.toggle('d-none', name !== 'pos');
     if (name === 'management') renderManagementDashboard();
     if (name === 'sales') renderSalesReport();
@@ -227,18 +223,18 @@ function showView(name) {
 }
 
 function bindNavigation() {
-    $('#cashierMenuBtn').addEventListener('click', event => {
-        event.stopPropagation();
-        const menu = $('#cashierMenu');
-        const opening = menu.classList.contains('d-none');
-        menu.classList.toggle('d-none', !opening);
-        $('#cashierMenuBtn').setAttribute('aria-expanded', String(opening));
+    $('#mobileNavToggle').addEventListener('click', () => {
+        const opening = !$('#mainNav').classList.contains('mobile-nav-open');
+        $('#mainNav').classList.toggle('mobile-nav-open', opening);
+        $('#mobileNavToggle').setAttribute('aria-expanded', String(opening));
     });
 
     document.addEventListener('click', event => {
-        if (!event.target.closest('#cashierMenu') && !event.target.closest('#cashierMenuBtn')) {
-            closeCashierMenu();
-        }
+        if (!event.target.closest('#mainNav')) closeMobileNav();
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeMobileNav();
     });
 
     document.addEventListener('click', e => {
@@ -265,7 +261,8 @@ function renderToday() {
     const now = new Date();
     const weekday = now.toLocaleDateString('en-GB', { weekday: 'short' });
     const rest = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    $('#todayLabel').textContent = `${weekday}, ${rest} · Counter 1`;
+    const counterName = getSettings().counterName || 'Counter 1';
+    $('#todayLabel').textContent = `${weekday}, ${rest} · ${counterName}`;
 }
 
 function renderCategories() {
@@ -287,7 +284,9 @@ function renderMenu() {
     );
 
     $('#menuGrid').innerHTML = list.length
-        ? list.map(p => `
+        ? list.map(p => {
+            const stock = menuStockDetails(p);
+            return `
         <div class="col">
           <div class="card menu-card" data-id="${p.id}">
             <div class="menu-tile">${glyph(p.category, 56)}</div>
@@ -298,9 +297,19 @@ function renderMenu() {
                 <button type="button" class="add-btn" aria-label="Add ${esc(p.name)} to order"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
               </div>
             </div>
+            <span class="menu-stock ${stock.className}">${stock.label}</span>
           </div>
-        </div>`).join('')
+        </div>`;
+        }).join('')
         : `<div class="col-12"><div class="alert alert-light border text-center mb-0">No items found.</div></div>`;
+}
+
+function menuStockDetails(product) {
+    const quantity = Number(getInventoryItem(product.id)?.quantity);
+    const available = Number.isFinite(quantity) ? Math.max(0, Math.floor(quantity)) : 0;
+    if (available === 0) return { className: 'out-of-stock', label: 'Out of stock' };
+    if (available < 10) return { className: 'low-stock', label: `Low stock · ${available}` };
+    return { className: 'in-stock', label: 'In stock' };
 }
 
 function bindMenu() {
@@ -378,7 +387,7 @@ function renderCartTotals() {
     $('#sumTax').textContent = money(t.tax);
     $('#sumTotal').textContent = money(t.total);
     $('#discountLabel').textContent = `Discount (${pct}%)`;
-    $('#taxLabel').textContent = `Tax (${Math.round(CONFIG.taxRate * 100)}%)`;
+    $('#taxLabel').textContent = `Tax (${formatPercent(CONFIG.taxRate * 100)}%)`;
     $('#cartBadge').textContent = state.cart.reduce((n, l) => n + l.qty, 0);
 }
 
@@ -446,19 +455,94 @@ function recordStockMovement(productId, type, quantity, reference, note) {
 
 function validateAndDeductStock(items, orderNumber) {
     initializeInventory();
-    const shortages = items.map(item => {
-        const stock = getInventoryItem(item.productId);
-        return { item, available: stock ? Number(stock.quantity) : 0 };
-    }).filter(entry => entry.available < entry.item.qty);
-    if (shortages.length) {
-        return `Insufficient stock: ${shortages.map(entry => entry.item.name).join(', ')}`;
+    const quantities = new Map();
+    for (const item of items) {
+        const quantity = Number(item.qty);
+        if (!item.productId || !Number.isSafeInteger(quantity) || quantity < 1) {
+            return 'An order contains an invalid product quantity.';
+        }
+        const total = (quantities.get(item.productId) || 0) + quantity;
+        if (!Number.isSafeInteger(total)) return 'An order contains an invalid product quantity.';
+        quantities.set(item.productId, total);
     }
-    items.forEach(item => {
-        const stock = getInventoryItem(item.productId);
-        stock.quantity = Number(stock.quantity) - Number(item.qty);
-        recordStockMovement(item.productId, 'Sale', -item.qty, orderNumber, 'Completed order sale');
+
+    const shortages = [...quantities].filter(([productId, quantity]) => {
+        const stock = getInventoryItem(productId);
+        return !stock || !Number.isFinite(Number(stock.quantity)) || Number(stock.quantity) < quantity;
+    });
+    if (shortages.length) {
+        const names = shortages.map(([productId]) =>
+            items.find(item => item.productId === productId)?.name || 'Unknown product'
+        );
+        return `Insufficient stock: ${names.join(', ')}`;
+    }
+
+    quantities.forEach((quantity, productId) => {
+        const stock = getInventoryItem(productId);
+        stock.quantity = Number(stock.quantity) - quantity;
+        recordStockMovement(productId, 'Sale', -quantity, orderNumber, 'Completed order sale');
     });
     saveInventory();
+    return null;
+}
+
+function adjustCompletedOrderStock(order, items) {
+    initializeInventory();
+    const oldQuantities = new Map();
+    if (order.stockDeducted === true) {
+        for (const item of order.items || []) {
+            const quantity = Number(item.qty);
+            if (!item.productId || !Number.isSafeInteger(quantity) || quantity < 1) {
+                return 'The existing order contains an invalid product quantity.';
+            }
+            const total = (oldQuantities.get(item.productId) || 0) + quantity;
+            if (!Number.isSafeInteger(total)) {
+                return 'The existing order contains an invalid product quantity.';
+            }
+            oldQuantities.set(item.productId, total);
+        }
+    }
+
+    const newQuantities = new Map();
+    for (const item of items) {
+        const quantity = Number(item.qty);
+        if (!item.productId || !Number.isSafeInteger(quantity) || quantity < 1) {
+            return 'An order contains an invalid product quantity.';
+        }
+        const total = (newQuantities.get(item.productId) || 0) + quantity;
+        if (!Number.isSafeInteger(total)) return 'An order contains an invalid product quantity.';
+        newQuantities.set(item.productId, total);
+    }
+
+    const deltas = new Map();
+    new Set([...oldQuantities.keys(), ...newQuantities.keys()]).forEach(productId => {
+        const difference = (newQuantities.get(productId) || 0) - (oldQuantities.get(productId) || 0);
+        if (difference) deltas.set(productId, difference);
+    });
+
+    const shortages = [...deltas].filter(([productId, difference]) => {
+        if (difference <= 0) return false;
+        const stock = getInventoryItem(productId);
+        return !stock || !Number.isFinite(Number(stock.quantity)) || Number(stock.quantity) < difference;
+    });
+    if (shortages.length) {
+        const names = shortages.map(([productId]) =>
+            items.find(item => item.productId === productId)?.name || 'Unknown product'
+        );
+        return `Insufficient stock: ${names.join(', ')}`;
+    }
+
+    deltas.forEach((difference, productId) => {
+        const stock = getInventoryItem(productId);
+        if (stock) stock.quantity = Number(stock.quantity) - difference;
+        if (difference > 0) {
+            recordStockMovement(productId, 'Sale', -difference, order.number, 'Completed order updated');
+        } else {
+            recordStockMovement(productId, 'Return', -difference, order.number, 'Completed order updated');
+        }
+    });
+    saveInventory();
+    order.stockDeducted = true;
     return null;
 }
 
@@ -512,13 +596,22 @@ function checkout() {
         ...calcTotals(items, discountPct),
         payment: $('#cartPayment').value,
         status: 'Completed',
-        stockDeducted: true
+        stockDeducted: true,
+        taxRate: CONFIG.taxRate,
+        storeName: getSettings().storeName || 'GrillMaster',
+        counterName: getSettings().counterName || 'Counter 1'
     };
 
     state.orders.unshift(order);
-    saveOrders();
+    if (!saveOrders()) {
+        state.orders = state.orders.filter(savedOrder => savedOrder.id !== order.id);
+        restockOrder(order, 'Checkout persistence rollback');
+        toast('Order was not saved. Check browser storage and try again.', 'danger');
+        return;
+    }
     clearCart();
     renderOrderNo();
+    renderMenu();
     renderOrders();
     renderCustomers();
 
@@ -640,8 +733,9 @@ function bindProducts() {
 
 function renderCustomers() {
     const tbody = $('#customersTable');
+    const canManageCustomers = GMAuth.requirePermission('manage_customers');
     if (!state.customers.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted-gm py-4">No customers yet. Click "Add Customer".</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted-gm py-4">${canManageCustomers ? 'No customers yet. Click "Add Customer".' : 'No customers yet.'}</td></tr>`;
     } else {
         tbody.innerHTML = state.customers.map(c => {
             const orderCount = state.orders.filter(o => o.customerId === c.id).length;
@@ -652,10 +746,12 @@ function renderCustomers() {
           <td>${esc(c.email) || '<span class="text-muted-gm">-</span>'}</td>
           <td>${esc(c.address) || '<span class="text-muted-gm">-</span>'}</td>
           <td class="text-center"><span class="badge text-bg-light border">${orderCount}</span></td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-gm" data-action="edit" data-id="${c.id}" aria-label="Edit ${esc(c.name)}"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${c.id}" aria-label="Delete ${esc(c.name)}"><i class="bi bi-trash"></i></button>
-          </td>
+          ${canManageCustomers
+                    ? `<td class="text-end">
+                        <button class="btn btn-sm btn-outline-gm" data-action="edit" data-id="${c.id}" aria-label="Edit ${esc(c.name)}"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${c.id}" aria-label="Delete ${esc(c.name)}"><i class="bi bi-trash"></i></button>
+                      </td>`
+                    : '<td class="text-end text-muted-gm">View only</td>'}
         </tr>`;
         }).join('');
     }
@@ -673,6 +769,10 @@ function populateCustomerSelects() {
 }
 
 function openCustomerModal(id) {
+  if (!GMAuth.requirePermission('manage_customers')) {
+    toast('Only managers and administrators can manage customers.', 'danger');
+    return;
+  }
   const form = $('#customerForm');
   form.reset();
   form.classList.remove('was-validated');
@@ -693,6 +793,10 @@ function bindCustomers() {
   $('#customersTable').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
+    if (!GMAuth.requirePermission('manage_customers')) {
+      toast('Only managers and administrators can manage customers.', 'danger');
+      return;
+    }
     const id = btn.dataset.id;
 
     if (btn.dataset.action === 'edit') openCustomerModal(id);
@@ -710,6 +814,10 @@ function bindCustomers() {
 
   $('#customerForm').addEventListener('submit', e => {
     e.preventDefault();
+    if (!GMAuth.requirePermission('manage_customers')) {
+      toast('Only managers and administrators can manage customers.', 'danger');
+      return;
+    }
     const form = e.target;
     if (!form.checkValidity()) {
       form.classList.add('was-validated');
@@ -782,6 +890,8 @@ function renderOrders() {
 }
 
 function receiptHtml(o) {
+  const taxRate = Number.isFinite(Number(o.taxRate)) ? Number(o.taxRate) : CONFIG.taxRate;
+  const storeName = o.storeName || getSettings().storeName || 'GrillMaster';
   const rows = o.items.map(i => `
     <tr>
       <td>${esc(i.name)}<br><small>${i.qty} x ${money(i.price)}</small></td>
@@ -791,8 +901,9 @@ function receiptHtml(o) {
   return `
     <div class="receipt">
       <div class="text-center">
-        <h5 class="mb-0">GRILLMASTER</h5>
+        <h5 class="mb-0">${esc(storeName)}</h5>
         <small>Order ${esc(o.number)}</small><br>
+        <small>${esc(o.counterName || getSettings().counterName || 'Counter 1')}</small><br>
         <small>${fmtDate(o.createdAt)}</small>
       </div>
       <hr>
@@ -804,7 +915,7 @@ function receiptHtml(o) {
       <hr>
       <div class="d-flex justify-content-between"><span>Subtotal</span><span>${money(o.subtotal)}</span></div>
       <div class="d-flex justify-content-between"><span>Discount (${o.discountPct}%)</span><span>- ${money(o.discount)}</span></div>
-      <div class="d-flex justify-content-between"><span>Tax (${Math.round(CONFIG.taxRate * 100)}%)</span><span>${money(o.tax)}</span></div>
+      <div class="d-flex justify-content-between"><span>Tax (${formatPercent(taxRate * 100)}%)</span><span>${money(o.tax)}</span></div>
       <div class="d-flex justify-content-between fw-bold fs-5 mt-1"><span>TOTAL</span><span>${money(o.total)}</span></div>
       <hr>
       <div class="text-center">Thank you! Come again.</div>
@@ -981,21 +1092,10 @@ function bindOrders() {
             }
             existingOrder.stockDeducted = true;
         } else if (existingOrder.status === 'Completed' && newStatus === 'Completed') {
-            const oldItemsKey = JSON.stringify((existingOrder.items || []).map(item =>
-                `${item.productId}:${item.qty}`).sort());
-            const newItemsKey = JSON.stringify(orderDraft.items.map(item =>
-                `${item.productId}:${item.qty}`).sort());
-            if (oldItemsKey !== newItemsKey) {
-                restockOrder(existingOrder, `Replaced items for ${existingOrder.number}`);
-                const stockError = validateAndDeductStock(orderDraft.items, existingOrder.number);
-                if (stockError) {
-                    // Restore the old stock allocation when the revised quantities cannot be fulfilled
-                    existingOrder.stockDeducted = true;
-                    restockOrder(existingOrder, `Restoration after rejected edit`);
-                    toast(stockError, 'danger');
-                    return;
-                }
-                existingOrder.stockDeducted = true;
+            const stockError = adjustCompletedOrderStock(existingOrder, orderDraft.items);
+            if (stockError) {
+                toast(stockError, 'danger');
+                return;
             }
         }
         state.orders[i] = {
@@ -1006,6 +1106,7 @@ function bindOrders() {
             payment: $('#oePayment').value,
             items: orderDraft.items,
             discountPct,
+            taxRate: CONFIG.taxRate,
             ...calcTotals(orderDraft.items, discountPct),
             updatedAt: new Date().toISOString()
         };
@@ -1038,13 +1139,77 @@ function prepareCanvas(canvas) {
     return { context, width: rect.width, height: rect.height };
 }
 
+const chartTooltipPoints = new WeakMap();
+const chartNumberFormatter = new Intl.NumberFormat('en-LK', { maximumFractionDigits: 2 });
+
+function formatChartNumber(value) {
+    return chartNumberFormatter.format(Number(value) || 0);
+}
+
+function getChartScale(values) {
+    const dataMax = Math.max(0, ...values.map(value =>
+        Number.isFinite(Number(value)) ? Number(value) : 0
+    ));
+    if (!dataMax) return { max: 1, step: 0.25 };
+
+    const rawStep = dataMax / 4;
+    const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+    const normalizedStep = rawStep / magnitude;
+    const stepFactor = normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10;
+    const step = stepFactor * magnitude;
+    return { max: step * 4, step };
+}
+
+function setChartTooltipPoints(canvas, points) {
+    chartTooltipPoints.set(canvas, points);
+    let tooltip = canvas.parentElement.querySelector('.chart-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'chart-tooltip';
+        tooltip.setAttribute('aria-hidden', 'true');
+        canvas.parentElement.append(tooltip);
+    }
+
+    if (canvas.dataset.tooltipBound) return;
+    canvas.dataset.tooltipBound = 'true';
+    canvas.addEventListener('pointermove', event => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const point = (chartTooltipPoints.get(canvas) || []).find(item => {
+            if (item.type === 'point') return Math.hypot(x - item.x, y - item.y) <= 16;
+            return x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height;
+        });
+
+        if (!point) {
+            tooltip.classList.remove('is-visible');
+            canvas.style.cursor = '';
+            return;
+        }
+
+        tooltip.textContent = `${point.label}: ${CONFIG.currency} ${formatChartNumber(point.value)}`;
+        tooltip.style.left = '0px';
+        tooltip.style.top = '0px';
+        tooltip.classList.add('is-visible');
+        const container = canvas.parentElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.left = `${Math.max(4, Math.min(x + 12, container.width - tooltipRect.width - 4))}px`;
+        tooltip.style.top = `${Math.max(4, Math.min(y - tooltipRect.height - 8, container.height - tooltipRect.height - 4))}px`;
+        canvas.style.cursor = 'pointer';
+    });
+    canvas.addEventListener('pointerleave', () => {
+        tooltip.classList.remove('is-visible');
+        canvas.style.cursor = '';
+    });
+}
+
 function drawLineChart(canvas, labels, values) {
     const { context: ctx, width, height } = prepareCanvas(canvas);
     ctx.clearRect(0, 0, width, height);
-    const padding = { top: 10, right: 12, bottom: 32, left: 48 };
+    const padding = { top: 12, right: 16, bottom: 32, left: 60 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
-    const max = Math.max(...values, 1);
+    const { max, step } = getChartScale(values);
 
     ctx.strokeStyle = 'rgba(246, 235, 221, 0.12)';
     ctx.fillStyle = '#B9A794';
@@ -1057,7 +1222,7 @@ function drawLineChart(canvas, labels, values) {
         ctx.moveTo(padding.left, y);
         ctx.lineTo(width - padding.right, y);
         ctx.stroke();
-        ctx.fillText(`${Math.round(max * (4 - i) / 4)}`, padding.left - 8, y + 3);
+        ctx.fillText(formatChartNumber(step * (4 - i)), padding.left - 8, y + 3);
     }
 
     const points = values.map((value, index) => ({
@@ -1083,6 +1248,12 @@ function drawLineChart(canvas, labels, values) {
     labels.forEach((label, index) => {
         ctx.fillText(label, points[index].x, height - 10);
     });
+    setChartTooltipPoints(canvas, points.map((point, index) => ({
+        type: 'point',
+        ...point,
+        label: labels[index],
+        value: values[index]
+    })));
 }
 
 function drawHorizontalBars(canvas, labels, values) {
@@ -1090,12 +1261,15 @@ function drawHorizontalBars(canvas, labels, values) {
     ctx.clearRect(0, 0, width, height);
     if (!labels.length) return;
 
-    const padding = { top: 8, right: 24, bottom: 8, left: 112 };
-    const chartWidth = width - padding.left - padding.right;
-    const rowHeight = (height - padding.top - padding.bottom) / labels.length;
-    const max = Math.max(...values, 1);
-
+    const padding = { top: 8, right: 12, bottom: 8, left: 112 };
+    const labelGap = 8;
     ctx.font = '11px Inter, sans-serif';
+    const valueColumnWidth = Math.max(...values.map(value => ctx.measureText(formatChartNumber(value)).width));
+    const chartWidth = Math.max(1, width - padding.left - padding.right - labelGap - valueColumnWidth);
+    const availableHeight = height - padding.top - padding.bottom;
+    const rowHeight = Math.min(52, availableHeight / labels.length);
+    const max = Math.max(...values.map(value => Number(value) || 0), 1);
+
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     labels.forEach((label, index) => {
@@ -1104,11 +1278,13 @@ function drawHorizontalBars(canvas, labels, values) {
         ctx.fillText(label.length > 16 ? `${label.slice(0, 15)}…` : label, padding.left - 8, y);
         ctx.fillStyle = 'rgba(246, 235, 221, 0.10)';
         ctx.fillRect(padding.left, y - 10, chartWidth, 20);
-        ctx.fillStyle = index % 2 ? '#F5B83D' : '#F26B21';
-        ctx.fillRect(padding.left, y - 10, chartWidth * values[index] / max, 20);
+        ctx.fillStyle = index === 0 ? '#F26B21' : '#F5B83D';
+        const value = Math.max(0, Number(values[index]) || 0);
+        const barWidth = value ? Math.max(Math.min(3, chartWidth), chartWidth * value / max) : 0;
+        ctx.fillRect(padding.left, y - 10, barWidth, 20);
         ctx.fillStyle = '#F6EBDD';
-        ctx.textAlign = 'left';
-        ctx.fillText(String(values[index]), Math.min(width - 32, padding.left + chartWidth * values[index] / max + 6), y);
+        ctx.textAlign = 'right';
+        ctx.fillText(formatChartNumber(value), width - padding.right, y);
         ctx.textAlign = 'right';
     });
 }
@@ -1116,10 +1292,10 @@ function drawHorizontalBars(canvas, labels, values) {
 function drawVerticalBars(canvas, labels, values) {
     const { context: ctx, width, height } = prepareCanvas(canvas);
     ctx.clearRect(0, 0, width, height);
-    const padding = { top: 12, right: 12, bottom: 32, left: 48 };
+    const padding = { top: 12, right: 12, bottom: 32, left: 60 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
-    const max = Math.max(...values, 1);
+    const { max, step } = getChartScale(values);
 
     ctx.strokeStyle = 'rgba(246, 235, 221, 0.12)';
     ctx.fillStyle = '#B9A794';
@@ -1131,27 +1307,40 @@ function drawVerticalBars(canvas, labels, values) {
         ctx.moveTo(padding.left, y);
         ctx.lineTo(width - padding.right, y);
         ctx.stroke();
-        ctx.fillText(`${Math.round(max * (4 - i) / 4)}`, padding.left - 8, y + 3);
+        ctx.fillText(formatChartNumber(step * (4 - i)), padding.left - 8, y + 3);
     }
 
     const slot = chartWidth / labels.length;
     ctx.textAlign = 'center';
+    const tooltipPoints = [];
     labels.forEach((label, index) => {
-        const barWidth = Math.max(8, slot * 0.58);
-        const barHeight = chartHeight * values[index] / max;
+        const barWidth = Math.min(36, slot * 0.72);
+        const value = Math.max(0, Number(values[index]) || 0);
+        const barHeight = Math.min(chartHeight, Math.max(value ? 2 : 0, chartHeight * value / max));
         const x = padding.left + slot * index + (slot - barWidth) / 2;
         const y = padding.top + chartHeight - barHeight;
         ctx.fillStyle = index === labels.length - 1 ? '#F5B83D' : '#F26B21';
         ctx.fillRect(x, y, barWidth, barHeight);
         ctx.fillStyle = '#B9A794';
         ctx.fillText(label, x + barWidth / 2, height - 10);
+        tooltipPoints.push({
+            type: 'area',
+            x: padding.left + slot * index,
+            y: padding.top,
+            width: slot,
+            height: chartHeight,
+            label,
+            value
+        });
     });
+    setChartTooltipPoints(canvas, tooltipPoints);
 }
 
 function setChartEmpty(canvasId, emptyId, hasData) {
     const canvas = $(`#${canvasId}`);
     canvas.classList.toggle('d-none', !hasData);
     $(`#${emptyId}`).classList.toggle('d-none', hasData);
+    canvas.parentElement.querySelector('.chart-tooltip')?.classList.remove('is-visible');
 }
 
 function renderManagementDashboard() {
@@ -1178,7 +1367,7 @@ function renderManagementDashboard() {
     $('#dashboardTotalEmployees').textContent = Array.isArray(employees) ? employees.length : 0;
     const inventory = store.load('grillmaster_inventory', []);
     $('#dashboardLowStock').textContent = Array.isArray(inventory)
-        ? inventory.filter(item => Number(item.quantity) <= Number(item.reorderLevel || 0)).length
+        ? inventory.filter(item => Number(item.quantity) <= Number(item.minimumStock || 0)).length
         : 0;
 
     const dailyLabels = [];
@@ -1376,6 +1565,9 @@ function openEmployeeModal(id) {
     $('#employeeRole').value = employee?.userRole || 'cashier';
     $('#employeeDateJoined').value = employee?.dateJoined || new Date().toISOString().slice(0, 10);
     $('#employeeStatus').value = employee?.status || 'active';
+    const canManageUsers = GMAuth.requirePermission('manage_users');
+    $('#employeeRole').disabled = !canManageUsers;
+    $('#employeeStatus').disabled = !canManageUsers;
     modal('employeeModal').show();
 }
 
@@ -1396,14 +1588,21 @@ function bindEmployees() {
             return;
         }
         const id = $('#employeeId').value;
+        const existingEmployee = state.employees.find(employee => employee.id === id);
+        const canManageUsers = GMAuth.requirePermission('manage_users');
+        const linkedUser = GMAuth.listUsers().find(user =>
+            user.email.toLowerCase() === $('#employeeEmail').value.trim().toLowerCase()
+        );
         const data = {
             name: $('#employeeName').value.trim(),
             email: $('#employeeEmail').value.trim(),
             phone: $('#employeePhone').value.trim(),
             position: $('#employeePosition').value,
-            userRole: $('#employeeRole').value,
+            userRole: canManageUsers ? $('#employeeRole').value : linkedUser?.role || existingEmployee?.userRole || 'cashier',
             dateJoined: $('#employeeDateJoined').value,
-            status: $('#employeeStatus').value
+            status: canManageUsers
+                ? $('#employeeStatus').value
+                : linkedUser ? (linkedUser.active ? 'active' : 'inactive') : existingEmployee?.status || 'active'
         };
         if (id) {
             const index = state.employees.findIndex(employee => employee.id === id);
@@ -1416,10 +1615,20 @@ function bindEmployees() {
                 createdAt: new Date().toISOString()
             });
         }
-        const linkedUser = GMAuth.listUsers().find(user => user.email.toLowerCase() === data.email.toLowerCase());
-        if (linkedUser) {
-            GMAuth.updateUserRole(linkedUser.id, data.userRole);
-            GMAuth.setUserActive(linkedUser.id, data.status === 'active');
+        if (linkedUser && canManageUsers) {
+            const roleUpdated = GMAuth.updateUserRole(linkedUser.id, data.userRole);
+            const statusUpdated = GMAuth.setUserActive(linkedUser.id, data.status === 'active');
+            if (!roleUpdated || !statusUpdated) {
+                const currentUser = GMAuth.listUsers().find(user => user.id === linkedUser.id);
+                const employee = state.employees.find(candidate =>
+                    candidate.email.toLowerCase() === linkedUser.email.toLowerCase()
+                );
+                if (currentUser && employee) {
+                    employee.userRole = currentUser.role;
+                    employee.status = currentUser.active ? 'active' : 'inactive';
+                }
+                toast('Employee saved, but linked account changes were rejected.', 'warning');
+            }
         }
         saveEmployees();
         renderEmployees();
@@ -1457,8 +1666,14 @@ function bindUsers() {
     $('#usersTable').addEventListener('change', event => {
         const select = event.target.closest('[data-user-role]');
         if (!select) return;
-        if (!GMAuth.updateUserRole(select.dataset.userRole, select.value)) toast('Could not change this role.', 'danger');
-        else toast('User role updated.');
+        const user = GMAuth.listUsers().find(candidate => candidate.id === select.dataset.userRole);
+        if (!user) return;
+        if (!GMAuth.updateUserRole(user.id, select.value)) {
+            select.value = user.role;
+            toast('The last active administrator cannot be demoted.', 'danger');
+        } else {
+            toast('User role updated.');
+        }
     });
     $('#usersTable').addEventListener('click', event => {
         const button = event.target.closest('[data-user-toggle]');
@@ -1699,7 +1914,7 @@ function renderAll() {
 let appInitialized = false;
 
 function initializeApp() {
-    if (appInitialized) return;
+    if (appInitialized) return false;
     appInitialized = true;
     loadState();
     bindNavigation();
@@ -1714,9 +1929,11 @@ function initializeApp() {
     bindUsers();
     bindSettings();
     renderAll();
+    return true;
 }
 
 function showLogin() {
+    closeMobileNav();
     $('#appShell').classList.add('d-none');
     $('#cartFab').classList.add('d-none');
     $('#loginPage').classList.remove('d-none');
@@ -1730,10 +1947,6 @@ function configureRoleNavigation() {
     const user = GMAuth.getCurrentUser();
     if (!user) return;
 
-    const elevatedRole = user.role === 'manager' || user.role === 'admin';
-    $$('.cashier-direct').forEach(link => link.classList.toggle('d-none', elevatedRole));
-    $('#cashierMenuBtn').classList.toggle('d-none', !elevatedRole);
-
     $$('#mainNav [data-permission]').forEach(link => {
         const allowed = GMAuth.requirePermission(link.dataset.permission);
         link.classList.toggle('d-none', !allowed);
@@ -1743,13 +1956,18 @@ function configureRoleNavigation() {
     badge.textContent = `${user.username} · ${user.role}`;
     badge.classList.remove('d-none');
     $('#addProductBtn').classList.toggle('d-none', !GMAuth.requirePermission('manage_inventory'));
+    $('#addCustomerBtn').classList.toggle('d-none', !GMAuth.requirePermission('manage_customers'));
 }
 
 function showApp() {
     $('#loginPage').classList.add('d-none');
     $('#appShell').classList.remove('d-none');
     configureRoleNavigation();
-    initializeApp();
+    if (!initializeApp()) {
+        renderProducts();
+        renderCustomers();
+        renderOrders();
+    }
     showView('pos');
 }
 
