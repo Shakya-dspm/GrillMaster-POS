@@ -35,6 +35,12 @@ const SEED_CUSTOMERS = [
     { name: 'Kavindi Silva', phone: '0712345678', email: '', address: 'Temple Road, Panadura' }
 ];
 
+const SEED_EMPLOYEES = [
+    { name: 'Amaya Fernando', email: 'amaya@example.com', phone: '0779876543', position: 'Cashier', userRole: 'cashier', status: 'active', dateJoined: '2024-03-15' },
+    { name: 'Ravindu Jayasinghe', email: 'ravindu@example.com', phone: '0718765432', position: 'Manager', userRole: 'manager', status: 'active', dateJoined: '2023-11-01' },
+    { name: 'Tharushi de Silva', email: 'tharushi@example.com', phone: '0762345678', position: 'Kitchen Staff', userRole: 'cashier', status: 'active', dateJoined: '2025-02-10' }
+];
+
 const TINTS = { Burgers: 'var(--surface-panel)', Fries: 'var(--surface-panel)', Drinks: 'var(--surface-panel)' };
 
 const GLYPHS = {
@@ -146,8 +152,8 @@ function loadState() {
     }
     state.customers = customers;
 
-    const orders = store.load(CONFIG.keys.orders, []);
-    state.orders = Array.isArray(orders) ? orders : [];
+    const storedOrders = store.load(CONFIG.keys.orders, null);
+    state.orders = Array.isArray(storedOrders) ? storedOrders : [];
 
     let inventory = store.load(CONFIG.keys.inventory, null);
     if (!Array.isArray(inventory)) {
@@ -161,6 +167,94 @@ function loadState() {
 
     const employees = store.load(CONFIG.keys.employees, []);
     state.employees = Array.isArray(employees) ? employees : [];
+
+    if (storedOrders === null) seedDemoData();
+}
+
+function seedDemoData() {
+    const now = new Date();
+    const productSales = new Map(state.products.map(product => [product.id, 0]));
+    const movements = [];
+    state.inventory = state.products.map(product => ({
+        productId: product.id,
+        quantity: 24,
+        minimumStock: 5,
+        unitPrice: product.price
+    }));
+
+    state.orders = Array.from({ length: 18 }, (_, index) => {
+        const product = state.products[(index * 3 + 1) % state.products.length];
+        const secondProduct = state.products[(index * 5 + 7) % state.products.length];
+        const items = [
+            { productId: product.id, name: product.name, category: product.category, price: product.price, qty: index % 3 === 0 ? 2 : 1 }
+        ];
+        if (index % 2 === 0 && secondProduct.id !== product.id) {
+            items.push({ productId: secondProduct.id, name: secondProduct.name, category: secondProduct.category, price: secondProduct.price, qty: 1 });
+        }
+        const status = index === 4 ? 'Pending' : index === 11 ? 'Cancelled' : 'Completed';
+        const customer = index % 4 === 0 ? null : state.customers[(index + 1) % state.customers.length];
+        const discountPct = index % 7 === 0 ? 5 : 0;
+        const totals = calcTotals(items, discountPct);
+        const createdAt = new Date(now);
+        createdAt.setDate(now.getDate() - Math.floor(index * 15 / 18));
+        createdAt.setHours(10 + (index * 2) % 11, (index * 17) % 60, 0, 0);
+        const number = orderNumberFor(index + 1);
+        if (status === 'Completed') {
+            items.forEach(item => productSales.set(item.productId, productSales.get(item.productId) + item.qty));
+            items.forEach(item => movements.push({
+                id: `demo-sale-${index + 1}-${item.productId}`,
+                productId: item.productId,
+                productName: item.name,
+                type: 'Sale',
+                quantity: -item.qty,
+                reference: number,
+                note: 'Demo order sale',
+                createdAt: createdAt.toISOString()
+            }));
+        }
+        return {
+            id: `demo-order-${index + 1}`,
+            number,
+            createdAt: createdAt.toISOString(),
+            customerId: customer?.id || '',
+            customerName: customer?.name || 'Walk-in Customer',
+            items,
+            discountPct,
+            ...totals,
+            payment: ['Cash', 'Card', 'Mobile Pay'][index % 3],
+            status,
+            stockDeducted: status === 'Completed',
+            taxRate: CONFIG.taxRate,
+            storeName: 'GrillMaster',
+            counterName: 'Counter 1'
+        };
+    });
+
+    state.inventory.forEach(item => {
+        item.quantity = Math.max(0, item.quantity - (productSales.get(item.productId) || 0));
+        movements.push({
+            id: `demo-restock-${item.productId}`,
+            productId: item.productId,
+            productName: state.products.find(product => product.id === item.productId)?.name || 'Product',
+            type: 'Restock',
+            quantity: 24,
+            reference: 'DEMO-SETUP',
+            note: 'Opening demo stock',
+            createdAt: new Date(now.getTime() - 16 * 86400000).toISOString()
+        });
+    });
+    state.stockMovements = movements;
+    state.employees = SEED_EMPLOYEES.map((employee, index) => ({
+        id: `demo-employee-${index + 1}`,
+        employeeId: `EMP-${String(index + 1).padStart(4, '0')}`,
+        ...employee,
+        createdAt: now.toISOString()
+    }));
+    store.save(CONFIG.keys.orders, state.orders);
+    store.save(CONFIG.keys.orderSeq, state.orders.length);
+    saveInventory();
+    saveStockMovements();
+    saveEmployees();
 }
 
 const saveProducts = () => store.save(CONFIG.keys.products, state.products);

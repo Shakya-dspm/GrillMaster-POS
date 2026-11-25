@@ -69,7 +69,7 @@ Opening `dist/index.html` directly with `file://` may cause browser restrictions
 
 The first launch displays an administrator setup form. Create the username, email, and password for the initial admin account. Passwords must contain at least eight characters.
 
-The application then seeds demo products and customers and creates the initial inventory structure on first use.
+The application then seeds a demo restaurant dataset when it has no saved order history: 12 menu items, two customers, 18 orders spread across the last 16 days (including a pending and a cancelled order), opening inventory and stock movements, and three employees. One or more completed orders are dated today so the management dashboard and sales reports show activity immediately. Sample records are created once per browser profile and are not added to profiles that already have an orders key. Use a fresh browser profile to see the complete demo dataset.
 
 ## Data Storage
 
@@ -106,7 +106,7 @@ Data is specific to the browser and origin. Clearing site data removes accounts,
     `-- settings.json
 ```
 
-The files in `dist/` are the deployable version. Source JavaScript should be updated in `js/app.js` and `js/auth.js`, then reflected in the corresponding minified `dist/js/` files.
+The files in `dist/` are the deployable version. Source JavaScript should be updated in `js/app.js` and `js/auth.js`, then reflected in the corresponding `dist/js/` bundles.
 
 ## Security and Production Notes
 
